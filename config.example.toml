@@ -1,0 +1,46 @@
+[research]
+# Counts only API/research work. Time spent waiting for free-tier quota does not count.
+target_active_hours = 72.0
+finalist_target = 500
+products_per_site = 5
+
+# Successive-halving tournament sizes.
+discovery_pool_target = 1500
+deep_research_pool = 800
+red_team_pool = 600
+minimum_validation_passes = 2
+minimum_red_team_passes = 1
+minimum_verified_sources = 3
+discovery_batch_size = 8
+review_batch_size = 3
+
+# Solo-founder hard gates. Candidates exceeding one are ineligible.
+max_build_hours = 40.0
+max_maintenance_hours_month = 4.0
+max_infra_cost_month = 50.0
+diversity_penalty = 12.0
+
+db_path = "state/niche_scout.db"
+output_dir = "exports"
+artifacts_dir = "state/artifacts"
+event_log_path = "state/logs/events.jsonl"
+heartbeat_seconds = 30
+action_pause_seconds = 3.0
+max_actions = 0
+
+[gemini]
+api_key_env = "GEMINI_API_KEY"
+zero_cost_mode = true
+
+# Google currently documents free-tier Search grounding for this pair. The
+# 500-request daily allowance is shared across the grounded models.
+grounded_models = ["gemini-2.5-flash-lite", "gemini-2.5-flash"]
+
+# Ungrounded schema/synthesis calls can use the wider free text-model pool.
+synthesis_models = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite"]
+deep_models = ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-2.5-flash"]
+
+request_timeout_seconds = 180
+base_cooldown_seconds = 60
+maximum_cooldown_seconds = 21600
+max_output_tokens = 14000

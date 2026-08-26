@@ -20,6 +20,10 @@ class _RateLimitError(RuntimeError):
     status_code = 429
 
 
+class _ModelPermissionError(RuntimeError):
+    status_code = 403
+
+
 class _Response:
     text = "ok"
     parsed = None
@@ -40,8 +44,16 @@ class _Models:
 
 
 class _Client:
-    def __init__(self):
-        self.models = _Models()
+    def __init__(self, models=None):
+        self.models = models or _Models()
+
+
+class _PermissionModels(_Models):
+    def generate_content(self, *, model, contents, config):
+        self.calls.append(model)
+        if model == "first-model":
+            raise _ModelPermissionError("403 model/tool is not enabled for this project tier")
+        return _Response()
 
 
 class _Gateway:
@@ -99,6 +111,32 @@ class GeminiFallbackTests(unittest.TestCase):
                 health = repo.get_model_health("test", "first-model")
                 self.assertEqual(health["consecutive_failures"], 1)
                 self.assertGreater(health["blocked_until"], 1000)
+
+    def test_model_permission_failure_advances_to_older_grounded_model(self) -> None:
+        with TemporaryDirectory() as directory:
+            settings = replace(
+                Settings(),
+                db_path=Path(directory) / "state.db",
+                zero_cost_mode=False,
+            )
+            with Repository(settings.db_path) as repo:
+                repo.initialize()
+                models = _PermissionModels()
+                gateway = GeminiGateway(
+                    settings,
+                    repo,
+                    client=_Client(models),
+                    now=lambda: 1000.0,
+                )
+                result = gateway.generate_text(
+                    task="grounded-test",
+                    models=("first-model", "second-model"),
+                    system="system",
+                    prompt="prompt",
+                    grounded=True,
+                )
+                self.assertEqual(result.model, "second-model")
+                self.assertEqual(models.calls, ["first-model", "second-model"])
 
     def test_completed_api_stages_resume_from_disk_cache(self) -> None:
         with TemporaryDirectory() as directory:

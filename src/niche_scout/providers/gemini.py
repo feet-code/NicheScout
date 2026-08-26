@@ -255,7 +255,7 @@ class GeminiGateway:
             except Exception as exc:  # SDK exception types are deliberately optional imports.
                 status = _status_code(exc)
                 error = f"{type(exc).__name__}: {exc}"
-                if status in {401, 403}:
+                if _is_authentication_failure(status, error):
                     raise GeminiAuthenticationError(
                         f"Gemini authentication/authorization failed for {model}: {exc}"
                     ) from exc
@@ -704,6 +704,25 @@ def _status_code(exc: Exception) -> int:
             continue
     match = re.search(r"\b(4\d\d|5\d\d)\b", str(exc))
     return int(match.group(1)) if match else 0
+
+
+def _is_authentication_failure(status: int, message: str) -> bool:
+    """Separate a globally bad credential from model/tool entitlement failures."""
+    if status == 401:
+        return True
+    lowered = message.lower()
+    return any(
+        marker in lowered
+        for marker in (
+            "api key not valid",
+            "api_key_invalid",
+            "invalid api key",
+            "invalid authentication credentials",
+            "authentication failed",
+            "unauthenticated",
+            "unregistered callers",
+        )
+    )
 
 
 def _cooldown_seconds(

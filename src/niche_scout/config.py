@@ -9,8 +9,9 @@ from pathlib import Path
 from typing import Any, get_args, get_origin
 
 
-# These model IDs have a documented free input/output tier as of 2026-08-24.
-# Google Search grounding on the free tier is restricted to the 2.5 Flash pair.
+# These model IDs have a documented free input/output tier as of 2026-08-25.
+# Search-grounding capability and free-tier grounding entitlement are separate:
+# validate the former here, while the account/project controls the latter.
 FREE_TEXT_MODELS = {
     "gemini-3.7-flash",
     "gemini-3.6-flash",
@@ -20,7 +21,13 @@ FREE_TEXT_MODELS = {
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
 }
-FREE_GROUNDED_MODELS = {"gemini-2.5-flash", "gemini-2.5-flash-lite"}
+SEARCH_GROUNDED_MODELS = {
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+}
 
 
 @dataclass(frozen=True)
@@ -53,7 +60,9 @@ class Settings:
     zero_cost_mode: bool = True
     api_key_env: str = "GEMINI_API_KEY"
     grounded_models: tuple[str, ...] = (
-        "gemini-2.5-flash-lite",
+        "gemini-3.7-flash",
+        "gemini-3.6-flash",
+        "gemini-3.5-flash",
         "gemini-2.5-flash",
     )
     synthesis_models: tuple[str, ...] = (
@@ -127,13 +136,23 @@ class Settings:
             raise ValueError("build and maintenance limits must be non-negative")
         if not self.grounded_models or not self.synthesis_models or not self.deep_models:
             raise ValueError("Every Gemini model chain must contain at least one model")
+        unsupported_grounding = set(self.grounded_models) - SEARCH_GROUNDED_MODELS
+        if unsupported_grounding:
+            raise ValueError(
+                "grounded_models rejects models without documented Google Search grounding: "
+                + ", ".join(sorted(unsupported_grounding))
+            )
         if self.zero_cost_mode:
-            unknown_text = (set(self.synthesis_models) | set(self.deep_models)) - FREE_TEXT_MODELS
-            unknown_grounded = set(self.grounded_models) - FREE_GROUNDED_MODELS
-            if unknown_text or unknown_grounded:
-                bad = sorted(unknown_text | unknown_grounded)
+            all_models = (
+                set(self.grounded_models)
+                | set(self.synthesis_models)
+                | set(self.deep_models)
+            )
+            unknown_text = all_models - FREE_TEXT_MODELS
+            if unknown_text:
                 raise ValueError(
-                    "zero_cost_mode rejects models without a documented free tier: " + ", ".join(bad)
+                    "zero_cost_mode rejects models without a documented free text tier: "
+                    + ", ".join(sorted(unknown_text))
                 )
 
     @property

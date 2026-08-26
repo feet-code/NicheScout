@@ -231,7 +231,11 @@ def _doctor(settings: Settings, repo: Repository, *, live: bool) -> None:
     check("sqlite", integrity == "ok", str(integrity))
     free_bytes = shutil.disk_usage(settings.db_path.parent).free
     check("disk", free_bytes >= 500 * 1024 * 1024, f"{free_bytes / 1024**3:.2f} GiB free")
-    check("zero-cost-models", True, "configuration passed the documented free-tier allowlist")
+    check(
+        "model-policy",
+        True,
+        "configuration passed the free-text and Search-grounding capability allowlists",
+    )
 
     if live and all(item["ok"] for item in checks[:3]):
         from .providers.gemini import GeminiGateway

@@ -72,9 +72,11 @@ Separating grounding from structured output makes citations inspectable and lets
 
 Discovery strategies are selected with an upper-confidence-bound bandit. Product quality rewards increase exploitation of productive evidence sources while the uncertainty term preserves exploration. After required tournament coverage is complete, the planner spends remaining time on the highest expected value of information near the 500th-place cutoff.
 
-## Free-tier behavior (important)
+## Gemini fallback and free-tier behavior (important)
 
-The default chains only include model IDs with a documented free text tier. Google currently documents free Google Search grounding for `gemini-2.5-flash` and `gemini-2.5-flash-lite`, with **500 grounded requests per day shared across those models**. The fallback chain helps with model-specific rate limits or availability, but it cannot bypass that shared daily grounding allowance.
+The grounded fallback chain is `gemini-3.7-flash` -> `gemini-3.6-flash` -> `gemini-3.5-flash` -> `gemini-2.5-flash`. Google documents Search grounding support for all four, so each attempt receives the Google Search tool rather than using the 3.x models only for ungrounded synthesis.
+
+Grounding capability is separate from API-tier entitlement. The model IDs have a free text tier, but Google's current Developer API pricing page lists Gemini 3.x Search grounding as unavailable on the free tier (it can be tested in AI Studio). It lists `gemini-2.5-flash` Search grounding as free for up to **500 requests per day**, shared with Flash-Lite. On an unbilled project, unavailable 3.x attempts fall through to the 2.5 anchor; if billing is enabled, verify Google's current quota and pricing before a long run. To make the API chain strictly free-tier-only, set `grounded_models = ["gemini-2.5-flash"]`.
 
 When every usable model is limited, NicheScout records the cooldown in SQLite and waits with a 30-second heartbeat. Quota waiting does **not** consume the configured 72 active research hours. You can safely stop instead and restart later.
 
@@ -175,7 +177,7 @@ NICHE_SCOUT_HEARTBEAT_SECONDS=60
 NICHE_SCOUT_SYNTHESIS_MODELS=gemini-3.5-flash-lite,gemini-2.5-flash-lite
 ```
 
-The zero-cost allowlist fails fast if a configured model is not known to have the required free tier. Set `zero_cost_mode = false` only if you intentionally accept possible billing.
+The model policy fails fast when a configured model lacks a documented free text tier or when a grounded-chain model lacks Search-grounding support. Google Search billing/entitlement is controlled separately by the Google Cloud project, so keep billing disabled or use only `gemini-2.5-flash` when a hard zero-dollar ceiling matters.
 
 ## Tests
 

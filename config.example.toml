@@ -32,9 +32,9 @@ max_actions = 0
 api_key_env = "GEMINI_API_KEY"
 zero_cost_mode = true
 
-# Google currently documents free-tier Search grounding for this pair. The
-# 500-request daily allowance is shared across the grounded models.
-grounded_models = ["gemini-2.5-flash-lite", "gemini-2.5-flash"]
+# All four models support Google Search grounding. Fail over newest-to-oldest
+# when a model is unavailable or rate limited.
+grounded_models = ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-2.5-flash"]
 
 # Ungrounded schema/synthesis calls can use the wider free text-model pool.
 synthesis_models = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite"]

@@ -11,13 +11,13 @@ from tempfile import TemporaryDirectory
 from niche_scout.config import Settings
 from niche_scout.db import Repository
 from niche_scout.engine import AgentEngine
-from niche_scout.exporter import export_portfolio, qualified_idea_count
+from niche_scout.exporter import _select_and_group, export_portfolio, qualified_idea_count
 from niche_scout.planner import ResearchPlanner
 from niche_scout.providers.mock import MockResearchProvider
 
 
 class PipelineTests(unittest.TestCase):
-    def test_small_tournament_exports_exact_grouped_portfolio(self) -> None:
+    def test_small_tournament_exports_grouped_portfolio(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)
             settings = _settings(root)
@@ -36,8 +36,10 @@ class PipelineTests(unittest.TestCase):
 
                 self.assertEqual(document["version"], 2)
                 self.assertEqual(len(document["ideas"]), 10)
-                self.assertEqual(len(document["sites"]), 2)
-                self.assertEqual({len(site["productIds"]) for site in document["sites"]}, {5})
+                self.assertGreaterEqual(len(document["sites"]), 2)
+                self.assertTrue(
+                    all(1 <= len(site["productIds"]) <= 8 for site in document["sites"])
+                )
                 product_ids = {idea["id"] for idea in document["ideas"]}
                 self.assertEqual(len(product_ids), 10)
                 self.assertEqual(
@@ -47,6 +49,36 @@ class PipelineTests(unittest.TestCase):
                 site_ids = {site["id"] for site in document["sites"]}
                 self.assertTrue(all(idea["siteId"] in site_ids for idea in document["ideas"]))
                 self.assertTrue((root / "finalists.md").exists())
+
+    def test_group_sizes_follow_audience_cohesion_not_an_exact_quota(self) -> None:
+        settings = replace(
+            Settings(),
+            finalist_target=9,
+            products_per_site=5,
+            max_products_per_site=8,
+            discovery_pool_target=12,
+            deep_research_pool=11,
+            red_team_pool=10,
+        )
+        rows = []
+        for index in range(9):
+            audience = "bookkeeping practices" if index < 2 else "equipment rental companies"
+            rows.append(
+                {
+                    "id": index + 1,
+                    "worthiness_score": 90 - index,
+                    "evidence_confidence": 0.8,
+                    "audience_cluster": audience,
+                    "target_customer": audience,
+                    "topic": f"workflow {index}",
+                    "canonical_problem": f"problem {index}",
+                    "solution": f"solution {index}",
+                }
+            )
+
+        groups = _select_and_group(rows, settings)
+
+        self.assertEqual(sorted(len(group) for group in groups), [2, 7])
 
     def test_interrupted_action_reuses_id_and_mission(self) -> None:
         with TemporaryDirectory() as directory:

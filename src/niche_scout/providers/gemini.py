@@ -506,7 +506,8 @@ them, in which case metrics_are_measured must be true and metric_source_url must
 Estimates must be conservative. Reject or falsify candidates whose core requires more than
 {settings.max_build_hours:g} build hours, {settings.max_maintenance_hours_month:g} maintenance hours/month,
 ${settings.max_infra_cost_month:g}/month, high-touch support, regulated data, or scraping. Audience clusters
-must name users who could plausibly cross-discover five complementary products on one coherent website.
+must name users who could plausibly cross-discover multiple complementary products on one coherent website.
+Do not widen an audience merely to hit a fixed product count.
 """.strip()
 
 

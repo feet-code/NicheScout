@@ -39,7 +39,10 @@ class Settings:
 
     target_active_hours: float = 72.0
     finalist_target: int = 500
+    # Soft grouping target. Cohesion, not this count, decides when a group closes.
     products_per_site: int = 5
+    max_products_per_site: int = 8
+    audience_similarity_threshold: float = 0.34
     discovery_pool_target: int = 1500
     deep_research_pool: int = 800
     red_team_pool: int = 600
@@ -112,12 +115,16 @@ class Settings:
     def validate(self) -> None:
         if self.target_active_hours <= 0:
             raise ValueError("target_active_hours must be positive")
-        if self.finalist_target < 5:
-            raise ValueError("finalist_target must be at least 5")
+        if self.finalist_target < 1:
+            raise ValueError("finalist_target must be positive")
         if self.products_per_site < 1:
             raise ValueError("products_per_site must be positive")
-        if self.finalist_target % self.products_per_site:
-            raise ValueError("finalist_target must be divisible by products_per_site")
+        if self.max_products_per_site < self.products_per_site:
+            raise ValueError(
+                "max_products_per_site must be at least the preferred products_per_site"
+            )
+        if not 0 <= self.audience_similarity_threshold <= 1:
+            raise ValueError("audience_similarity_threshold must be between 0 and 1")
         if not (
             self.discovery_pool_target >= self.deep_research_pool
             >= self.red_team_pool
@@ -157,7 +164,8 @@ class Settings:
 
     @property
     def site_target(self) -> int:
-        return self.finalist_target // self.products_per_site
+        """Estimated site count at the preferred size; actual grouping is flexible."""
+        return (self.finalist_target + self.products_per_site - 1) // self.products_per_site
 
     @property
     def target_active_seconds(self) -> float:

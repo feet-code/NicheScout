@@ -1,6 +1,6 @@
 # NicheScout
 
-NicheScout is a **finite, restart-safe research tournament** that front-loads the selection of an initial SEO micro-SaaS portfolio. Its default job is to research 1,500 candidates for 72 active hours, underwrite the strongest candidates more deeply, and emit exactly **500 products grouped into 100 audience-coherent websites with five complementary products each**.
+NicheScout is a **finite, restart-safe research tournament** that front-loads the selection of an initial SEO micro-SaaS portfolio. Its default job is to research 1,500 candidates for 72 active hours, underwrite the strongest candidates more deeply, and emit exactly **500 products grouped into variable-size, audience-coherent websites**.
 
 It deliberately stops at `exports/ideas.json`. It does not deploy sites and it does not use GSC, PostHog, signups, or revenue. Those signals belong to the downstream deployment/feedback loop.
 
@@ -60,7 +60,7 @@ top 600: adversarial red-team research
 remaining time: highest-value uncertainty near the cutoff
         |
         v
-500 qualified products -- deterministic audience grouping --> 100 sites
+500 qualified products -- deterministic audience-fit grouping --> variable site count
 ```
 
 Each action has two intentionally separate Gemini stages:
@@ -68,7 +68,7 @@ Each action has two intentionally separate Gemini stages:
 1. A Google-Search-grounded model gathers a cited dossier and negative evidence.
 2. A free text model converts only that dossier into a strict schema.
 
-Separating grounding from structured output makes citations inspectable and lets the synthesis fallback chain use more free models. The last ranking and grouping step is deterministic Python, not another subjective model vote.
+Separating grounding from structured output makes citations inspectable and lets the synthesis fallback chain use more free models. The last ranking and grouping step is deterministic Python, not another subjective model vote. `products_per_site` is a soft size/diversity target; it is not a quota. A site closes when no remaining idea clears the audience-similarity threshold, and an unusually coherent audience can grow up to `max_products_per_site`.
 
 Discovery strategies are selected with an upper-confidence-bound bandit. Product quality rewards increase exploitation of productive evidence sources while the uncertainty term preserves exploration. After required tournament coverage is complete, the planner spends remaining time on the highest expected value of information near the 500th-place cutoff.
 
@@ -120,7 +120,7 @@ Useful files:
 - `state/niche_scout.db` — authoritative state;
 - `state/artifacts/` — mission, dossier, sources, schema result, and normalized batch;
 - `exports/ideas.json` — final editable handoff;
-- `exports/finalists.md` — readable 100-site/500-product ranking.
+- `exports/finalists.md` — readable variable-site/500-product ranking.
 
 Use `--verbose` before the command for full console JSON:
 
@@ -149,7 +149,7 @@ The version-2 contract is human editable:
     {
       "id": "portfolio-001-example-audience",
       "audience": "example audience",
-      "productIds": ["one", "two", "three", "four", "five"]
+      "productIds": ["one", "two", "three"]
     }
   ],
   "ideas": [
@@ -163,7 +163,7 @@ The version-2 contract is human editable:
 }
 ```
 
-You can reorder, edit, remove, or add your own ideas before importing it into the SEO deployment repository. Keep each `site.productIds` list and the matching idea `siteId` consistent.
+You can reorder, edit, remove, or add your own ideas before importing it into the SEO deployment repository. Keep each `site.productIds` list and the matching idea `siteId` consistent. Sites may contain any non-empty number of products; the configured maximum is an optimizer guardrail, not a downstream schema restriction.
 
 ## Configuration
 
@@ -185,4 +185,4 @@ The model policy fails fast when a configured model lacks a documented free text
 python -m unittest discover -s tests -v
 ```
 
-The suite exercises an end-to-end miniature tournament/export, exact five-product grouping, hard feasibility kills, interrupted-action reuse, config parsing, and Gemini rate-limit fallback without making network calls.
+The suite exercises an end-to-end miniature tournament/export, variable audience-driven grouping, hard feasibility kills, interrupted-action reuse, config parsing, and Gemini rate-limit fallback without making network calls.

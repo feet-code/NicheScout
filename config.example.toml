@@ -2,7 +2,11 @@
 # Counts only API/research work. Time spent waiting for free-tier quota does not count.
 target_active_hours = 72.0
 finalist_target = 500
+# Soft target used for diversity and size penalties, never an exact quota.
 products_per_site = 5
+max_products_per_site = 8
+# A new site starts when no remaining product clears this audience-fit threshold.
+audience_similarity_threshold = 0.34
 
 # Successive-halving tournament sizes.
 discovery_pool_target = 1500

@@ -102,11 +102,18 @@ def build_portfolio(repo: Repository, settings: Settings) -> dict[str, Any]:
             "eligibleIdeas": counts["eligible"],
             "qualifiedIdeas": len(candidates),
             "finalists": settings.finalist_target,
-            "sites": settings.site_target,
-            "productsPerSite": settings.products_per_site,
+            "sites": len(groups),
+            "estimatedSitesAtPreferredSize": settings.site_target,
+            "preferredProductsPerSite": settings.products_per_site,
+            "maxProductsPerSite": settings.max_products_per_site,
+            "audienceSimilarityThreshold": settings.audience_similarity_threshold,
+            "productCountDistribution": dict(
+                sorted(Counter(len(group) for group in groups).items())
+            ),
             "selection": (
                 "Hard feasibility gates, minimum source/review coverage, evidence-weighted score, "
-                "then deterministic audience-cohesion grouping with duplicate-problem penalties."
+                "then deterministic variable-size audience-cohesion grouping with "
+                "duplicate-problem and oversized-group penalties."
             ),
             "metricPolicy": (
                 "Search volume/CPC/difficulty are null unless a cited source explicitly measured them; "
@@ -137,29 +144,39 @@ def export_portfolio(
 def _select_and_group(
     candidates: list[dict[str, Any]], settings: Settings
 ) -> list[list[dict[str, Any]]]:
-    remaining = {int(row["id"]): row for row in candidates}
+    selected = _select_finalists(candidates, settings)
+    remaining = {int(row["id"]): row for row in selected}
     groups: list[list[dict[str, Any]]] = []
-    audience_site_counts: Counter[str] = Counter()
-    for _ in range(settings.site_target):
-        if len(remaining) < settings.products_per_site:
-            raise PortfolioNotReady("Not enough unused qualified candidates to complete every site")
+    while remaining:
         seed = max(
             remaining.values(),
             key=lambda row: (
-                float(row["worthiness_score"])
-                - settings.diversity_penalty
-                * audience_site_counts[_cluster_key(row)] ** 0.75,
+                float(row["worthiness_score"]),
                 float(row["evidence_confidence"]),
                 -int(row["id"]),
             ),
         )
         group = [seed]
         del remaining[int(seed["id"])]
-        while len(group) < settings.products_per_site:
+        while remaining and len(group) < settings.max_products_per_site:
+            extra = max(0, len(group) + 1 - settings.products_per_site)
+            required_similarity = min(
+                0.92,
+                settings.audience_similarity_threshold + 0.08 * extra,
+            )
+            eligible = [
+                row
+                for row in remaining.values()
+                if _group_audience_similarity(row, group) >= required_similarity
+            ]
+            if not eligible:
+                break
             peer = max(
-                remaining.values(),
+                eligible,
                 key=lambda row: (
-                    _peer_value(row, group),
+                    _peer_value(row, group)
+                    - 0.06 * max(0, len(group) + 1 - settings.products_per_site),
+                    _group_audience_similarity(row, group),
                     float(row["worthiness_score"]),
                     -int(row["id"]),
                 ),
@@ -167,12 +184,47 @@ def _select_and_group(
             group.append(peer)
             del remaining[int(peer["id"])]
         groups.append(group)
-        audience_site_counts[_cluster_key(seed)] += 1
     return groups
 
 
+def _select_finalists(
+    candidates: list[dict[str, Any]], settings: Settings
+) -> list[dict[str, Any]]:
+    """Select exactly the configured finalist count while preserving audience diversity."""
+    remaining = {int(row["id"]): row for row in candidates}
+    selected: list[dict[str, Any]] = []
+    audience_product_counts: Counter[str] = Counter()
+    while len(selected) < settings.finalist_target:
+        if not remaining:
+            raise PortfolioNotReady("Not enough qualified candidates to select every finalist")
+        row = max(
+            remaining.values(),
+            key=lambda item: (
+                float(item["worthiness_score"])
+                - settings.diversity_penalty
+                * (
+                    audience_product_counts[_cluster_key(item)]
+                    / settings.products_per_site
+                )
+                ** 0.75,
+                float(item["evidence_confidence"]),
+                -int(item["id"]),
+            ),
+        )
+        selected.append(row)
+        audience_product_counts[_cluster_key(row)] += 1
+        del remaining[int(row["id"])]
+    return selected
+
+
+def _group_audience_similarity(
+    row: dict[str, Any], group: list[dict[str, Any]]
+) -> float:
+    return fmean(_audience_similarity(row, member) for member in group)
+
+
 def _peer_value(row: dict[str, Any], group: list[dict[str, Any]]) -> float:
-    coherence = fmean(_audience_similarity(row, member) for member in group)
+    coherence = _group_audience_similarity(row, group)
     closest_duplicate = max(_product_similarity(row, member) for member in group)
     quality = float(row["worthiness_score"]) / 100
     confidence = float(row["evidence_confidence"])

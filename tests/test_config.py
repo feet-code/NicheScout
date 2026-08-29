@@ -35,9 +35,12 @@ class ConfigTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Google Search grounding"):
             Settings(grounded_models=("gemini-3.5-flash-lite",)).validate()
 
-    def test_finalists_must_divide_evenly_into_sites(self) -> None:
-        with self.assertRaisesRegex(ValueError, "divisible"):
-            Settings(finalist_target=501).validate()
+    def test_finalists_do_not_need_to_divide_evenly_into_sites(self) -> None:
+        Settings(finalist_target=501).validate()
+
+    def test_maximum_group_size_cannot_be_below_soft_target(self) -> None:
+        with self.assertRaisesRegex(ValueError, "max_products_per_site"):
+            Settings(products_per_site=5, max_products_per_site=4).validate()
 
 
 if __name__ == "__main__":

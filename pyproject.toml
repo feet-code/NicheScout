@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "niche-scout"
+version = "0.2.0"
+description = "Finite, restart-safe micro-SaaS seed-portfolio research tournament"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "google-genai>=1.30.0,<2",
+  "pydantic>=2.8.0,<3",
+  "python-dotenv>=1.0.1,<2",
+]
+
+[project.scripts]
+niche-scout = "niche_scout.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
